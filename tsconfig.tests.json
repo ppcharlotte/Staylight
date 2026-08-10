@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "outDir": ".test-dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "incremental": false
+  },
+  "include": [
+    "tests/**/*.test.ts",
+    "lib/requirements.ts",
+    "lib/provider-links.ts",
+    "lib/hotel-evidence.ts",
+    "lib/hotel-profiles.ts",
+    "lib/prompts.ts",
+    "lib/rule-engine.ts",
+    "lib/types.ts"
+  ]
+}

@@ -1,0 +1,14 @@
+node_modules
+.next
+.test-dist
+out
+.env
+.env.local
+.env*.local
+.staylight-data/
+.tools/
+*.log
+*.tgz
+*.tsbuildinfo
+.DS_Store
+release
