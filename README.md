@@ -8,6 +8,10 @@ Staylight remembers stable hotel preferences, gathers requirements specific to e
 
 See [`docs/PROJECT_LOGIC.md`](docs/PROJECT_LOGIC.md) for the current end-to-end architecture, data flow, filtering and research stages, candidate states, cache behavior, failure handling, and module map.
 
+## CI/CD
+
+See [`docs/CI_CD.md`](docs/CI_CD.md) for GitHub Actions checks, Vercel production deployment, required secrets, branch protection, persistence limitations, and rollback guidance.
+
 ## What It Does
 
 - Stores long-term preferences such as value, aggregate guest rating, quiet, location, and user-created weighted priorities locally on the device.
@@ -42,7 +46,7 @@ For a one-command local start on macOS or Linux:
 ./start-local.sh
 ```
 
-This starts Staylight at `http://127.0.0.1:3003` by default and installs dependencies when needed. Override the port with `PORT=3000 ./start-local.sh`.
+This starts Staylight at `http://127.0.0.1:3004` by default and installs dependencies when needed. Override the port with `PORT=3000 ./start-local.sh`.
 
 ## Environment Variables
 
