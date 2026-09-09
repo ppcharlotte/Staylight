@@ -9,7 +9,6 @@ cd "$PROJECT_DIR"
 mkdir -p release
 
 zip -rqFS "$ARCHIVE" \
-  .github \
   app \
   docs \
   lib \

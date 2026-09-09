@@ -3,7 +3,7 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PORT="${PORT:-3004}"
+PORT="${PORT:-3003}"
 
 cd "$PROJECT_DIR"
 
