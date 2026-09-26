@@ -5,6 +5,7 @@ import { demoProfile } from "@/lib/sample-data";
 import { applyPreferences, defaultUserPreferences } from "@/lib/preferences";
 import { extractRequirementPriorities, isExplicitInterviewFinish, isNoMoreAnswer } from "@/lib/requirements";
 import { formatBudget, formatDateRange } from "@/lib/trip";
+import { consumeLiveAllowance, getOrCreateLiveSession, liveQuotaResponse, type LiveSession } from "@/lib/live-quota";
 import type { TravelerProfile } from "@/lib/types";
 
 const FINAL_CHECK_QUESTION =
@@ -58,6 +59,7 @@ const profileRequestSchema = z.object({
   currentProfile: travelerProfileSchema.nullable().optional(),
   phase: z.enum(["collecting", "final_check", "confirmed"]).default("collecting"),
   mode: z.enum(["sample", "live"]).default("sample"),
+  liveSessionToken: z.string().optional(),
   finishRequested: z.boolean().default(false)
 });
 
@@ -309,6 +311,20 @@ export async function POST(request: Request) {
     }, { status: 503 });
   }
 
+  let liveSession: LiveSession;
+  try {
+    liveSession = await getOrCreateLiveSession(request, parsed.data.liveSessionToken);
+    await consumeLiveAllowance(
+      liveSession,
+      "interviewTurns",
+      1,
+      6,
+      "This Live session has reached its 6-turn interview limit. Finish the interview or start again tomorrow."
+    );
+  } catch (error) {
+    return liveQuotaResponse(error);
+  }
+
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const model = process.env.OPENAI_MODEL ?? "gpt-5.6";
@@ -357,12 +373,14 @@ export async function POST(request: Request) {
       phase: nextPhase,
       readyForSearch: false,
       source: "openai",
-      model
+      model,
+      liveSessionToken: liveSession.token
     });
   } catch (error) {
     return NextResponse.json({
       ...sampleTransition(parsed.data, "fallback"),
-      limitation: error instanceof Error ? error.message : "Live interview failed."
+      limitation: error instanceof Error ? error.message : "Live interview failed.",
+      liveSessionToken: liveSession.token
     });
   }
 }

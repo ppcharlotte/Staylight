@@ -5,6 +5,7 @@ import { demoProfile, sampleHotels } from "@/lib/sample-data";
 import { buildSummaryRequirements, HOTEL_SUMMARY_INSTRUCTIONS } from "@/lib/prompts";
 import { buildFallbackDetailSummary, rankHotelsByRules } from "@/lib/rule-engine";
 import type { HotelCandidate, TravelerProfile } from "@/lib/types";
+import { consumeLiveAllowance, getOrCreateLiveSession, liveQuotaResponse } from "@/lib/live-quota";
 
 const summarySchema = z.object({
   hotelId: z.string(),
@@ -37,7 +38,9 @@ const summaryJsonSchema = {
 
 const analyzeSchema = z.object({
   profile: z.record(z.unknown()).default(demoProfile),
-  hotels: z.array(z.record(z.unknown())).default(sampleHotels)
+  hotels: z.array(z.record(z.unknown())).default(sampleHotels),
+  mode: z.enum(["sample", "live"]).default("sample"),
+  liveSessionToken: z.string().optional()
 });
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -98,6 +101,15 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid analysis request." }, { status: 400 });
+  }
+
+  if (parsed.data.mode === "live") {
+    try {
+      const session = await getOrCreateLiveSession(request, parsed.data.liveSessionToken);
+      await consumeLiveAllowance(session, "analyses", 1, 1, "This Live session has already generated its hotel summary.");
+    } catch (error) {
+      return liveQuotaResponse(error);
+    }
   }
 
   const deterministicRecommendations = buildFallbackRecommendations(parsed.data.hotels, parsed.data.profile);

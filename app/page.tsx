@@ -64,6 +64,7 @@ type ChatMessage = {
 type Capabilities = {
   openaiConfigured: boolean;
   serpApiConfigured: boolean;
+  liveQuotaConfigured: boolean;
   model: string;
 };
 
@@ -188,12 +189,14 @@ function removeDismissedFromProfile(profile: TravelerProfile, dismissed: Set<str
 
 async function researchAndAnalyzeHotels(
   candidates: HotelCandidate[],
-  profile: TravelerProfile
+  profile: TravelerProfile,
+  mode: SearchMode,
+  liveSessionToken: string
 ): Promise<{ hotels: HotelCandidate[]; recommendations: HotelRecommendation[]; research: ResearchBatchSummary }> {
   const researchResponse = await fetch("/api/hotels/research-batch", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ destination: profile.destination, hotels: candidates })
+    body: JSON.stringify({ destination: profile.destination, hotels: candidates, mode, liveSessionToken })
   });
   const researchPayload = await researchResponse.json();
   if (!researchResponse.ok) {
@@ -204,10 +207,12 @@ async function researchAndAnalyzeHotels(
   const analyzeResponse = await fetch("/api/hotels/analyze", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profile, hotels: researchedHotels })
+    body: JSON.stringify({ profile, hotels: researchedHotels, mode, liveSessionToken })
   });
   const analyzePayload = await analyzeResponse.json();
-  if (!analyzeResponse.ok) throw new Error("Hotel analysis failed.");
+  if (!analyzeResponse.ok) {
+    throw new Error(typeof analyzePayload.error === "string" ? analyzePayload.error : "Hotel analysis failed.");
+  }
 
   return {
     hotels: researchedHotels,
@@ -248,6 +253,7 @@ export default function HomePage() {
   const [userPreferences, setUserPreferences] = useState<UserPreferences>(defaultUserPreferences);
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const [dismissedPriorities, setDismissedPriorities] = useState<Set<string>>(new Set());
+  const [liveSessionToken, setLiveSessionToken] = useState("");
 
   const selectedRecommendation = useMemo(
     () =>
@@ -322,6 +328,7 @@ export default function HomePage() {
           currentProfile: travelerProfile,
           phase: interviewPhase,
           mode: searchMode,
+          liveSessionToken,
           finishRequested
         })
       });
@@ -335,6 +342,7 @@ export default function HomePage() {
         : "collecting";
 
       if (payload.profile) setTravelerProfile(removeDismissedFromProfile(payload.profile, dismissedPriorities));
+      if (typeof payload.liveSessionToken === "string") setLiveSessionToken(payload.liveSessionToken);
       setInterviewPhase(nextPhase);
       setProfileSource(String(payload.source ?? "sample"));
       if (wasConfirmed) setHasSearchResults(false);
@@ -433,15 +441,20 @@ export default function HomePage() {
             riskPriorities: activeProfile.riskPriorities,
             travelerStyle: activeProfile.travelerStyle
           },
-          mode: searchMode
+          mode: searchMode,
+          liveSessionToken
         })
       });
 
       const searchPayload = await searchResponse.json();
       if (!searchResponse.ok) {
         const limitation = Array.isArray(searchPayload.limitations) ? searchPayload.limitations[0] : "";
-        throw new Error(limitation || "Hotel search failed.");
+        throw new Error(searchPayload.error || limitation || "Hotel search failed.");
       }
+      const activeLiveSessionToken = typeof searchPayload.liveSessionToken === "string"
+        ? searchPayload.liveSessionToken
+        : liveSessionToken;
+      if (activeLiveSessionToken) setLiveSessionToken(activeLiveSessionToken);
       const returnedHotels = Array.isArray(searchPayload.hotels) ? searchPayload.hotels : [];
       const nextHotels = filterHotelsByMinimumRating(
         filterHotelsByBudget(
@@ -462,14 +475,14 @@ export default function HomePage() {
         const limitation = Array.isArray(searchPayload.limitations) ? searchPayload.limitations[0] : "";
         throw new Error(limitation || `No eligible hotels found within $${activeProfile.budgetMax} per room per night.`);
       }
-      const researchLimit = Math.min(INITIAL_RESEARCH_LIMIT, nextHotels.length);
+      const researchLimit = Math.min(searchMode === "live" ? 6 : INITIAL_RESEARCH_LIMIT, nextHotels.length);
       const shortlist = selectHotelsForResearch(nextHotels, activeProfile, researchLimit);
       const shortlistIds = new Set(shortlist.map((hotel) => hotel.id));
-      const laterCandidates = nextHotels.filter((hotel) => !shortlistIds.has(hotel.id));
+      const laterCandidates = searchMode === "live" ? [] : nextHotels.filter((hotel) => !shortlistIds.has(hotel.id));
       setDataSource(String(searchPayload.source ?? "unknown"));
       setRunNote(`Researching reviews for ${shortlist.length} shortlisted hotels...`);
 
-      const analyzed = await researchAndAnalyzeHotels(shortlist, activeProfile);
+      const analyzed = await researchAndAnalyzeHotels(shortlist, activeProfile, searchMode, activeLiveSessionToken);
       const analyzedRecommendations = analyzed.recommendations;
       if (searchMode === "live" && analyzedRecommendations.length === 0) {
         throw new Error("Live analysis returned no valid hotel recommendations.");
@@ -490,6 +503,7 @@ export default function HomePage() {
       setRunNote(`${nextRecommendations.length} verified matches${newlyExcludedHotels.length > 0 ? ` · ${newlyExcludedHotels.length} removed after review verification` : ""}${laterCandidates.length > 0 ? ` · ${laterCandidates.length} awaiting review` : ""}${coverageNote}`);
       setHasSearchResults(true);
       setActiveTab("Results");
+      if (searchMode === "live") setLiveSessionToken("");
     } catch (searchError) {
       const fallbackReason = searchError instanceof Error ? searchError.message : "The live request could not complete.";
       if (searchMode === "live") {
@@ -550,7 +564,7 @@ export default function HomePage() {
     setRunNote(`Researching ${nextBatch.length} more hotels...`);
 
     try {
-      const analyzed = await researchAndAnalyzeHotels(nextBatch, activeProfile);
+      const analyzed = await researchAndAnalyzeHotels(nextBatch, activeProfile, searchMode, liveSessionToken);
       const analyzedRecommendationIds = new Set(analyzed.recommendations.map((recommendation) => recommendation.hotelId));
       const newlyExcludedHotels = analyzed.hotels.filter((hotel) => !analyzedRecommendationIds.has(hotel.id));
       setHotels((current) => [...current, ...analyzed.hotels.filter((hotel) => !current.some((item) => item.id === hotel.id))]);
@@ -837,14 +851,21 @@ function TripScreen({
               <button className={mode === "sample" ? "active" : ""} type="button" onClick={() => changeMode("sample")}>
                 Sample
               </button>
-              <button className={mode === "live" ? "active" : ""} type="button" onClick={() => changeMode("live")}>
+              <button
+                className={mode === "live" ? "active" : ""}
+                disabled={capabilities?.liveQuotaConfigured === false}
+                type="button"
+                onClick={() => changeMode("live")}
+              >
                 Live
               </button>
             </fieldset>
             <p className="modeStatus">
               {mode === "sample"
                 ? "Choose Tokyo, Copenhagen, or Paris with bundled hotel data."
-                : capabilities?.serpApiConfigured && capabilities?.openaiConfigured
+                : capabilities?.liveQuotaConfigured === false
+                  ? "Live is unavailable until production usage limits are configured."
+                  : capabilities?.serpApiConfigured && capabilities?.openaiConfigured
                   ? `Enter any destination · SerpApi + ${capabilities.model}`
                   : "Enter any destination. Live requires server-side OpenAI and SerpApi keys."}
             </p>
