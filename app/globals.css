@@ -19,8 +19,7 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 78% 16%, rgba(118, 110, 230, 0.28), transparent 28%),
-    linear-gradient(135deg, #17133c 0%, #242052 48%, #0f2830 100%);
+  background: var(--surface);
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -32,67 +31,30 @@ button {
 }
 
 .stage {
-  align-items: center;
-  display: grid;
-  gap: 52px;
-  grid-template-columns: minmax(344px, 430px) minmax(300px, 520px);
-  justify-content: center;
-  min-height: 100vh;
-  padding: 48px 32px;
+  min-height: 100dvh;
 }
 
-.phoneShell {
+.appShell {
   background: var(--surface);
-  border: 10px solid #111119;
-  border-radius: 46px;
-  box-shadow: var(--shadow), inset 0 0 0 2px rgba(255, 255, 255, 0.7);
-  height: min(860px, calc(100vh - 54px));
-  min-height: 730px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
   overflow: hidden;
-  position: relative;
-  width: min(430px, calc(100vw - 32px));
-}
-
-.phoneShell::before {
-  background: #050508;
-  border-radius: 0 0 18px 18px;
-  content: "";
-  height: 28px;
-  left: 50%;
-  position: absolute;
-  top: 15px;
-  transform: translateX(-50%);
-  width: 122px;
-  z-index: 3;
-}
-
-.statusBar {
-  align-items: center;
-  display: flex;
-  font-size: 14px;
-  font-weight: 700;
-  justify-content: space-between;
-  padding: 24px 30px 8px;
-}
-
-.statusPill {
-  width: 128px;
-}
-
-.statusIcons {
-  font-size: 12px;
+  width: 100%;
 }
 
 .appHeader {
   align-items: center;
+  background: rgba(245, 245, 247, 0.96);
+  border-bottom: 1px solid var(--line);
   display: grid;
   gap: 8px;
   grid-template-columns: 44px 1fr 44px;
-  padding: 12px 16px 14px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 14px;
+  z-index: 2;
 }
 
 .appHeader h1,
-.desktopPanel h2,
 .heroCard h2,
 .searchCard h2,
 .lensHero h2 {
@@ -206,7 +168,7 @@ button {
 }
 
 .screenScroll {
-  height: calc(100% - 228px);
+  min-height: 0;
   overflow-y: auto;
   padding: 0 24px 24px;
 }
@@ -255,7 +217,6 @@ button {
 }
 
 .heroCard p,
-.desktopPanel p,
 .lensHero p {
   color: var(--muted);
   line-height: 1.45;
@@ -1277,16 +1238,13 @@ button {
   align-items: center;
   background: var(--navy);
   border-radius: 999px;
-  bottom: 24px;
   box-shadow: 0 16px 42px rgba(27, 23, 71, 0.32);
   display: grid;
   gap: 5px;
   grid-template-columns: repeat(4, 1fr);
   height: 66px;
-  left: 64px;
+  margin: 8px 54px max(12px, env(safe-area-inset-bottom));
   padding: 8px;
-  position: absolute;
-  right: 64px;
 }
 
 .bottomNav button {
@@ -1316,83 +1274,122 @@ button {
   color: var(--navy);
 }
 
-.desktopPanel {
-  color: white;
-  max-width: 520px;
-}
-
-.brandMark {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  display: inline-flex;
-  gap: 10px;
-  margin-bottom: 22px;
-  padding: 10px 14px;
-}
-
-.desktopPanel h2 {
-  font-size: clamp(38px, 6vw, 68px);
-  line-height: 0.98;
-}
-
-.desktopPanel p {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 18px;
-  margin-top: 22px;
-  max-width: 480px;
-}
-
-.desktopStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 28px;
-}
-
-.desktopStats span {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.86);
-  font-weight: 700;
-  padding: 10px 12px;
-}
-
-@media (max-width: 920px) {
-  .stage {
-    grid-template-columns: 1fr;
-    padding: 22px 12px;
-  }
-
-  .desktopPanel {
-    display: none;
-  }
-}
-
 @media (max-width: 440px) {
-  .stage {
-    background: var(--surface);
-    min-height: 100svh;
-    padding: 0;
+  .appHeader h1 {
+    font-size: 18px;
   }
 
-  .phoneShell {
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    height: 100svh;
-    min-height: 100svh;
-    width: 100vw;
+  .screenScroll {
+    padding-inline: 16px;
   }
 
-  .phoneShell::before {
-    top: 12px;
+  .appHeader {
+    padding-inline: 12px;
   }
 
   .bottomNav {
-    left: 54px;
-    right: 54px;
+    margin-inline: 38px;
+  }
+}
+
+@media (min-width: 921px) {
+  .appShell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 68px 54px minmax(0, 1fr);
+  }
+
+  .appHeader {
+    background: #ffffff;
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0 max(32px, calc((100vw - 1200px) / 2));
+  }
+
+  .appHeader .iconButton,
+  .appHeader .headerSpacer,
+  .appHeader h1 {
+    display: none;
+  }
+
+  .appHeader .eyebrow {
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .headerLogo {
+    height: 36px;
+    width: 36px;
+  }
+
+  .screenScroll {
+    grid-column: 1;
+    grid-row: 3;
+    padding: 28px max(32px, calc((100vw - 1200px) / 2)) 48px;
+  }
+
+  .screenScroll > * {
+    margin-inline: auto;
+    max-width: 1120px;
+  }
+
+  .bottomNav {
+    background: #ffffff;
+    border-radius: 0;
+    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    box-shadow: none;
+    display: flex;
+    flex-direction: row;
+    gap: 28px;
+    grid-column: 1;
+    grid-row: 2;
+    height: 54px;
+    margin: 0;
+    padding: 0 max(32px, calc((100vw - 1200px) / 2));
+  }
+
+  .bottomNav button {
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    flex-direction: row;
+    flex: 0 0 auto;
+    gap: 8px;
+    height: 54px;
+    justify-content: center;
+    padding: 0 4px;
+    width: auto;
+  }
+
+  .bottomNav button span {
+    font-size: 14px;
+  }
+
+  .bottomNav button:disabled {
+    color: #b6b4bd;
+  }
+
+  .bottomNav .selected {
+    background: transparent;
+    border-bottom-color: var(--violet);
+    color: var(--navy);
+  }
+
+  .hotelList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotelCard {
+    min-height: 148px;
+  }
+
+  .profileStack,
+  .lensStack {
+    max-width: 900px;
+  }
+
+  .sheetHandle {
+    display: none;
   }
 }

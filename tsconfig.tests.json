@@ -23,6 +23,7 @@
     "lib/hotel-profiles.ts",
     "lib/prompts.ts",
     "lib/rule-engine.ts",
+    "lib/trip.ts",
     "lib/types.ts"
   ]
 }

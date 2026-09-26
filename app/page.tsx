@@ -39,7 +39,14 @@ import {
   rankHotelsByRules,
   selectHotelsForResearch
 } from "@/lib/rule-engine";
-import { defaultTripBasics, formatBudget, formatDateRange, profileFromTripBasics } from "@/lib/trip";
+import {
+  addDaysToDateInput,
+  defaultTripBasics,
+  formatBudget,
+  formatDateRange,
+  getTodayDateInputValue,
+  profileFromTripBasics
+} from "@/lib/trip";
 import type { HotelCandidate, HotelRecommendation, TravelerProfile, TripBasics, UserPreferences } from "@/lib/types";
 
 const tabs = ["Trip", "Results", "Details", "Profile"] as const;
@@ -569,13 +576,7 @@ export default function HomePage() {
 
   return (
     <main className="stage">
-      <section className="phoneShell" aria-label="Staylight mobile app preview">
-        <div className="statusBar">
-          <span>9:41</span>
-          <span className="statusPill" />
-          <span className="statusIcons">5G</span>
-        </div>
-
+      <section className="appShell" aria-label="Staylight hotel advisor">
         <header className="appHeader">
           <button
             className="iconButton"
@@ -680,23 +681,6 @@ export default function HomePage() {
           })}
         </nav>
       </section>
-
-      <aside className="desktopPanel" aria-label="Build summary">
-        <div className="brandMark">
-          <Sparkles size={20} />
-          <span>OpenAI Build Week</span>
-        </div>
-        <h2>Personal hotel decisions with clear risk evidence.</h2>
-        <p>
-          Staylight remembers long-term preferences, gathers only trip-specific requirements, then explains hotel fit,
-          risks, confidence, and what to verify before booking.
-        </p>
-        <div className="desktopStats">
-          <span>Sample mode ready</span>
-          <span>Server-side keys</span>
-          <span>Mobile-first MVP</span>
-        </div>
-      </aside>
     </main>
   );
 }
@@ -753,6 +737,8 @@ function TripScreen({
   const [tripError, setTripError] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const confirmedProfile = interviewPhase === "confirmed" ? profile : null;
+  const today = getTodayDateInputValue();
+  const minimumCheckOut = addDaysToDateInput(draftTrip.checkIn || today, 1);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -764,6 +750,19 @@ function TripScreen({
 
   function changeTripBasics(nextTrip: TripBasics) {
     setDraftTrip(nextTrip);
+    if (!nextTrip.checkIn || !nextTrip.checkOut) {
+      setTripError("Choose both check-in and check-out dates.");
+      return;
+    }
+    if (nextTrip.checkIn && nextTrip.checkIn < today) {
+      setTripError("Check-in cannot be in the past.");
+      return;
+    }
+    if (nextTrip.checkIn && nextTrip.checkOut && nextTrip.checkOut <= nextTrip.checkIn) {
+      setTripError("Check-out must be after check-in.");
+      return;
+    }
+    setTripError("");
     if (tripBasicsLocked) onTripBasicsChange(nextTrip);
   }
 
@@ -783,7 +782,13 @@ function TripScreen({
     event.preventDefault();
     const destination = draftTrip.destination.trim();
     if (!destination) return setTripError("Choose or enter a destination.");
-    if (!draftTrip.checkIn || !draftTrip.checkOut || draftTrip.checkOut <= draftTrip.checkIn) {
+    if (!draftTrip.checkIn || !draftTrip.checkOut) {
+      return setTripError("Choose both check-in and check-out dates.");
+    }
+    if (draftTrip.checkIn < today) {
+      return setTripError("Check-in cannot be in the past.");
+    }
+    if (draftTrip.checkOut <= draftTrip.checkIn) {
       return setTripError("Check-out must be after check-in.");
     }
     if (draftTrip.adults < 1 || draftTrip.rooms < 1 || draftTrip.rooms > draftTrip.adults) {
@@ -885,16 +890,27 @@ function TripScreen({
               <span><CalendarDays size={15} /> Check-in</span>
               <input
                 aria-label="Check-in"
+                min={today}
+                required
                 type="date"
                 value={draftTrip.checkIn}
-                onChange={(event) => changeTripBasics({ ...draftTrip, checkIn: event.target.value })}
+                onChange={(event) => {
+                  const checkIn = event.target.value;
+                  const earliestCheckOut = addDaysToDateInput(checkIn, 1);
+                  changeTripBasics({
+                    ...draftTrip,
+                    checkIn,
+                    checkOut: draftTrip.checkOut < earliestCheckOut ? earliestCheckOut : draftTrip.checkOut
+                  });
+                }}
               />
             </label>
             <label className="fieldGroup">
               <span><CalendarDays size={15} /> Check-out</span>
               <input
                 aria-label="Check-out"
-                min={draftTrip.checkIn}
+                min={minimumCheckOut}
+                required
                 type="date"
                 value={draftTrip.checkOut}
                 onChange={(event) => changeTripBasics({ ...draftTrip, checkOut: event.target.value })}
