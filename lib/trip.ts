@@ -1,10 +1,38 @@
-import { applyPreferences } from "@/lib/preferences";
+import { applyPreferences } from "./preferences";
 import type { TravelerProfile, TripBasics, UserPreferences } from "@/lib/types";
+
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function getTodayDateInputValue(now = new Date()): string {
+  return formatDateInputValue(now);
+}
+
+export function addDaysToDateInput(value: string, days: number): string {
+  const [year, month, day] = value.split("-").map(Number);
+  if (![year, month, day].every(Number.isFinite)) return value;
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return formatDateInputValue(date);
+}
+
+export function getDefaultTripDates(now = new Date()): Pick<TripBasics, "checkIn" | "checkOut"> {
+  const today = getTodayDateInputValue(now);
+  return {
+    checkIn: addDaysToDateInput(today, 1),
+    checkOut: addDaysToDateInput(today, 6)
+  };
+}
+
+const defaultTripDates = getDefaultTripDates();
 
 export const defaultTripBasics: TripBasics = {
   destination: "Tokyo",
-  checkIn: "2026-09-15",
-  checkOut: "2026-09-20",
+  ...defaultTripDates,
   adults: 1,
   rooms: 1,
   budgetMin: 0,
