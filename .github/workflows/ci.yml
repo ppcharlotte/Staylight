@@ -2,31 +2,24 @@ name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
 
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   quality:
-    name: Lint, typecheck, test, and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -35,7 +28,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
+      - name: Type check
         run: npm run typecheck
 
       - name: Test
@@ -43,6 +36,4 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          NEXT_PUBLIC_DEMO_MODE: sample
 
