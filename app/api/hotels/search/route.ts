@@ -11,6 +11,7 @@ import {
   numericPrice,
 } from "@/lib/rule-engine";
 import { getNightCount } from "@/lib/trip";
+import { consumeLiveAllowance, getOrCreateLiveSession, liveQuotaResponse, type LiveSession } from "@/lib/live-quota";
 
 const searchSchema = z.object({
   profile: z
@@ -31,7 +32,8 @@ const searchSchema = z.object({
       travelerStyle: z.string().default("")
     })
     .passthrough(),
-  mode: z.enum(["sample", "live"]).default("sample")
+  mode: z.enum(["sample", "live"]).default("sample"),
+  liveSessionToken: z.string().optional()
 });
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -116,6 +118,14 @@ export async function POST(request: Request) {
       hotels: [],
       limitations: ["Live search requires SERPAPI_API_KEY. No sample hotels were substituted."]
     }, { status: 503 });
+  }
+
+  let liveSession: LiveSession;
+  try {
+    liveSession = await getOrCreateLiveSession(request, parsed.data.liveSessionToken);
+    await consumeLiveAllowance(liveSession, "searches", 1, 1, "This Live session has already run its hotel search.");
+  } catch (error) {
+    return liveQuotaResponse(error);
   }
 
   const accommodationQuery = parsed.data.profile.accommodationType === "hotel"
@@ -249,6 +259,7 @@ export async function POST(request: Request) {
       source: "serpapi",
       hotels,
       searchStats,
+      liveSessionToken: liveSession.token,
       limitations: hotels.length > 0
         ? ["Provider coverage and review details vary by hotel and Google Hotels query."]
         : ["No live hotels satisfied the budget and hard trip requirements. No constraints were relaxed."]

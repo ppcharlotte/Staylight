@@ -4,6 +4,7 @@ import { getStoredHotelProfiles, upsertStoredHotelProfiles } from "@/lib/hotel-p
 import { enrichHotelWithResearch, canonicalHotelKey, isResearchProfileFresh } from "@/lib/hotel-profiles";
 import { researchHotelProfile } from "@/lib/hotel-research";
 import type { HotelCandidate, HotelResearchProfile } from "@/lib/types";
+import { consumeLiveAllowance, getOrCreateLiveSession, liveQuotaResponse } from "@/lib/live-quota";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,9 @@ const hotelSchema = z.object({
 
 const requestSchema = z.object({
   destination: z.string().min(1),
-  hotels: z.array(hotelSchema).min(1).max(24)
+  hotels: z.array(hotelSchema).min(1).max(24),
+  mode: z.enum(["sample", "live"]).default("sample"),
+  liveSessionToken: z.string().optional()
 });
 
 async function researchWithConcurrency(
@@ -52,6 +55,21 @@ async function researchWithConcurrency(
 export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid batch research request." }, { status: 400 });
+
+  if (parsed.data.mode === "live") {
+    try {
+      const session = await getOrCreateLiveSession(request, parsed.data.liveSessionToken);
+      await consumeLiveAllowance(
+        session,
+        "researchedHotels",
+        parsed.data.hotels.length,
+        6,
+        "This Live session has reached its 6-hotel review research limit."
+      );
+    } catch (error) {
+      return liveQuotaResponse(error);
+    }
+  }
 
   const destination = parsed.data.destination;
   const hotels = parsed.data.hotels as unknown as HotelCandidate[];

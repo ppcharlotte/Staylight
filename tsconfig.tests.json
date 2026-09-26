@@ -21,6 +21,7 @@
     "lib/provider-links.ts",
     "lib/hotel-evidence.ts",
     "lib/hotel-profiles.ts",
+    "lib/live-quota.ts",
     "lib/prompts.ts",
     "lib/rule-engine.ts",
     "lib/trip.ts",

@@ -21,7 +21,7 @@ flowchart TD
     C["Concierge: multi-turn trip interview"] --> D
     D --> E["Hotel candidate search"]
     E --> F["Pre-research hard filters"]
-    F --> G["Diverse shortlist: up to 18 hotels initially"]
+    F --> G["Diverse shortlist: up to 18 Sample or 6 Live hotels"]
     G --> H{"Fresh local review profile available?"}
     H -->|Yes| I["Reuse HotelResearchProfile"]
     H -->|No| J["GPT Web Search review research"]
@@ -32,7 +32,7 @@ flowchart TD
     M --> N["GPT writes concise detail summaries"]
     N --> O["Results and Hotel Details"]
     F --> P["Candidates awaiting research"]
-    P -->|Up to 12 per additional round| G
+    P -->|Sample: up to 12 per additional round| G
 ```
 
 Runtime boundaries:
@@ -129,9 +129,9 @@ Hard constraints are never relaxed automatically. If Live search returns no elig
 The system does not research every candidate immediately after hard filtering:
 
 - `selectHotelsForResearch()` starts with rule-based scores and preserves area and price diversity.
-- The initial research round includes up to 18 hotels.
-- Other eligible candidates enter `remainingHotels`.
-- The Analyze more hotels action researches up to 12 additional hotels per round and merges them into the existing results.
+- The initial research round includes up to 18 hotels in Sample mode and up to 6 hotels in public Live mode.
+- Other eligible Sample candidates enter `remainingHotels`.
+- The Analyze more hotels action researches up to 12 additional Sample hotels per round and merges them into the existing results. Public Live sessions stop after the initial six-hotel research allowance.
 - One `/api/hotels/research-batch` request accepts at most 24 hotels. The default research concurrency is 3, with an enforced maximum of 4.
 
 As a result, seeing 10 candidates but only 4 visible matches is not necessarily a pagination defect. Four candidates may have survived review verification, while others appear under Removed after review verification or remain Awaiting review. The interface should use these three counts to account for every initially eligible candidate.
@@ -237,6 +237,9 @@ tests/                                 Rule, evidence, requirement, and link tes
 - `/api/status` exposes only whether a capability is configured, never the key value.
 - Review profiles stay on the user's machine. `STAYLIGHT_DATA_DIR` can redirect the storage directory.
 - The current profile cache is a single-machine JSON store suitable for a local-first early product. It is not designed for concurrent writes from multiple application instances.
+- Anonymous production use is limited to three Live sessions per hashed IP per UTC day. A signed, short-lived token connects the interview, search, research, and summary calls without exposing the raw IP to storage.
+- One Live session permits up to six interview turns, one hotel search, research for six hotels, and one summary generation. Production fails closed when the signing secret or persistent Redis quota store is missing.
+- Users who exhaust the public allowance are directed to Sample mode or local self-hosting; the hosted app never asks users to submit their own OpenAI API key.
 
 ## 10. Failure and Fallback Principles
 
